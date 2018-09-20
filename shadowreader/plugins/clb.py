@@ -24,7 +24,6 @@ from libs.s3 import (
     fetch_file_names_on_s3,
 )
 from classes.mytime import MyTime
-from datetime import datetime
 from typing import Tuple, Match
 from collections import defaultdict
 
@@ -65,9 +64,7 @@ def _parse_line(line: Match[str]) -> dict:
     uri = f'/{"/".join(x)}'
 
     timestamp = line.group("timestamp")  # timestamp in ISO format
-    timestamp = datetime.strptime(
-        timestamp[:19], "%Y-%m-%dT%H:%M:%S"
-    )  # convert to datetime obj
+    timestamp = MyTime._try_isoformat(timestamp, tzinfo="UTC").dt
 
     res = {
         "url": url,
