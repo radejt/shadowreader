@@ -33,7 +33,7 @@ def test_alb_log_parsing():
     assert logs[3]["uri"] == "/test1234/abcd"
 
     assert logs[0]["req_method"] == "GET"
-    assert logs[0]["timestamp"].timestamp() == 1537253700.0
+    assert int(logs[0]["timestamp"].timestamp()) == 1537253700
     assert logs[0]["timestamp"] < logs[3]["timestamp"]
     assert (
         logs[0]["user_agent"]
