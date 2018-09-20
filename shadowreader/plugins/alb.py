@@ -29,7 +29,7 @@ from datetime import datetime
 from typing import Tuple, Match
 
 s3cl = boto3.client("s3")
-elb_regex = r'(?P<type>[\S]+) (?P<timestamp>[\S]+) (?P<elb>[\S]+) (?P<client>[\S]+) (?P<target>[\S]+) (?P<request_processing_time>[\S]+) (?P<target_processing_time>[\S]+) (?P<response_processing_time>[\S]+) (?P<elb_status_code>[\S]+) (?P<target_status_code>[\S]+) (?P<received_bytes>[\S]+) (?P<sent_bytes>[\S]+) \"(?P<request>.*)\" \"(?P<user_agent>.*)\" (?P<ssl_cipher>[\S]+) (?P<ssl_protocol>[\S]+) (?P<target_group_arn>[\S]+) \"(?P<trace_id>[\S]+)\" \"(?P<domain_name>[\S]+)\" \"(?P<chosen_cert_arn>[\S]+)\"'
+elb_regex = r"(?P<type>[\S]+) (?P<timestamp>[\S]+) (?P<elb>[\S]+) (?P<client>[\S]+) (?P<target>[\S]+) (?P<request_processing_time>[\S]+) (?P<target_processing_time>[\S]+) (?P<response_processing_time>[\S]+) (?P<elb_status_code>[\S]+) (?P<target_status_code>[\S]+) (?P<received_bytes>[\S]+) (?P<sent_bytes>[\S]+) \"(?P<request>.*)\" \"(?P<user_agent>.*)\" (?P<ssl_cipher>[\S]+) (?P<ssl_protocol>[\S]+) (?P<target_group_arn>[\S]+) \"(?P<trace_id>[\S]+)\" \"(?P<domain_name>[\S]+)\" \"(?P<chosen_cert_arn>[\S]+)\""
 regex = re.compile(elb_regex)
 
 
@@ -62,13 +62,19 @@ def _parse_line(line: Match[str]) -> dict:
     url = request[1]
     x = url.split("/")[3:]
     uri = f'/{"/".join(x)}'
-
+    user_agent = line.group("user_agent")
     timestamp = line.group("timestamp")  # timestamp in ISO format
     timestamp = datetime.strptime(
         timestamp[:19], "%Y-%m-%dT%H:%M:%S"
     )  # convert to datetime obj
 
-    res = {"url": url, "uri": uri, "req_method": req_method, "timestamp": timestamp}
+    res = {
+        "url": url,
+        "uri": uri,
+        "req_method": req_method,
+        "timestamp": timestamp,
+        "user_agent": user_agent,
+    }
     return res
 
 
@@ -112,11 +118,8 @@ def _download_and_parse_s3_data(files: list, elb_logs_bucket: str, app: str) -> 
         data = _download_file(elb_logs_bucket, f["Key"])
         delete_tmp_file()
         lines += data.splitlines()
-    
-    lines = [regex.match(line) for line in lines]
-    lines = sorted(lines, key=lambda x: x.group("timestamp"))
 
-    lines = [_parse_line(line) for line in lines]
+    lines = _regex_match_and_parse_logs(lines)
 
     payload = {app: {}}
 
@@ -128,6 +131,13 @@ def _download_and_parse_s3_data(files: list, elb_logs_bucket: str, app: str) -> 
 
     print(f"# lines produced: {num_lines}")
     return payload
+
+
+def _regex_match_and_parse_logs(lines):
+    lines = [regex.match(line) for line in lines]
+    lines = sorted(lines, key=lambda x: x.group("timestamp"))
+    lines = [_parse_line(line) for line in lines]
+    return lines
 
 
 def _deduce_bucket_n_path(bucket_w_logs: str) -> Tuple[str, str]:
